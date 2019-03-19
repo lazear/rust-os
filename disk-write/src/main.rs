@@ -32,26 +32,54 @@ fn copy_to_file<W: Write + Seek, R: Read>(
 }
 
 fn main() -> io::Result<()> {
-    let mut build = Command::new("cargo")
+    let build = Command::new("cargo")
         .current_dir("kernel")
         .args(&["xbuild", "--target", "target.json", "--release"])
-        .spawn()?;
-    if !build.wait()?.success() {
+        .spawn()?
+        .wait()?
+        .success();
+    if !build {
         panic!("Error executing cargo xbuild");
     }
 
-    let mut handle = create_block("disk.img", 0x1000)?;
-    let mut bootloader = File::open("bootloader/bootstrap")?;
-    let mut kernel = File::open("./target/target/release/rust-os")?;
+    let ld = Command::new("ld")
+        .args(&[
+            "--gc-sections",
+            "-z",
+            "max-page-size=0x1000",
+            "-o",
+            "./build/kernel.elf",
+            "-T",
+            "linker.ld",
+            "./target/target/release/librust_os.a",
+        ])
+        .spawn()?
+        .wait()?;
+
+    let nasm = Command::new("nasm")
+        .current_dir("bootloader")
+        .args(&["-f", "bin", "boot.asm", "-o", "../build/bootstrap.bin"])
+        .spawn()?
+        .wait()?
+        .success();
+    if !nasm {
+        panic!("Error executing assembler commands");
+    }
+
+    println!("Copying files to disk image");
+
+    let mut handle = create_block("./build/disk.img", 0x1000)?;
+    let mut bootloader = File::open("./build/bootstrap.bin")?;
+    let mut kernel = File::open("./build/kernel.elf")?;
 
     let data = kernel.metadata()?.len() as usize;
 
     copy_to_file(&mut handle, &mut bootloader, 0)?;
     assert_eq!(data, copy_to_file(&mut handle, &mut kernel, 0x400)?);
 
-    let mut qemu = Command::new("C:\\Program Files\\qemu\\qemu-system-x86_64")
-        .args(&["disk.img", "--monitor", "stdio"])
-        .spawn()?;
+    // let mut qemu = Command::new("C:\\Program Files\\qemu\\qemu-system-x86_64")
+    //     .args(&["disk.img"])
+    //     .spawn()?;
 
     Ok(())
 }

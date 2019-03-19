@@ -48,24 +48,20 @@ load_elf:
 	; R8: first program header
 	; R9: last program header
 
-	push rdi 
-	xor rax, rax
-	xor rcx, rcx
-	mov r8,  [rdi + elf64_ehdr.phoff]	
-	mov ax, [rdi + elf64_ehdr.phentsize]
-	mov cx, [rdi + elf64_ehdr.phnum]
-	mul cx
-
-	; RAX = (ehdr->e_phentsize * ehdr->e_phnum)
-	; R9 = RAX + R8
-	mov r9, rax
-	add r9, r8
+	push rdi 								; rdi contains memory address of ELF binary
+	xor rax, rax							; clear rax
+	xor rcx, rcx							; clear rcx 
+	mov r8,  [rdi + elf64_ehdr.phoff]		; load r8 with addr of program header
+	mov ax, [rdi + elf64_ehdr.phentsize]	; load rax with size of phdr entry 
+	mov cx, [rdi + elf64_ehdr.phnum]		; load rcx with number of phdr's
+	mul cx									; rax = (ehdr->e_phentsize * ehdr->e_phnum)
+	mov r9, rax								; r9 = rax 
+	add r9, r8 								; r9 = end of phdrs, r8 = beginning of phdrs
 	xor r10, r10
 
-	mov rax, rdi
-
-	;jmp $
 	; we need rdi for movsb, so switch to using rax for data buffer
+	mov rax, rdi							; rax = memory address of ELF binary
+	
 	; Parse the program headers, and copy to the destination
 	.loop:
 		; r9 is the last program header, so if current phdr = r9,
@@ -73,18 +69,18 @@ load_elf:
 		cmp r8, r9
 		je .done
 		
-		mov rcx, [rax + r8 + elf64_phdr.filesz]	; how many bytes to copy
-		mov rdx, [rax + r8 + elf64_phdr.offset]	; offset from data
+		mov rcx, [rax + r8 + elf64_phdr.filesz]		; how many bytes to copy
+		mov rdx, [rax + r8 + elf64_phdr.offset]		; offset from data
 		
 		cmp rcx, 0
 		je .bss
 
-
 		; rsi contains the source address
 		mov rsi, rax
 		add rsi, rdx
+
 		; rdi contains the destination address	
-		mov rdi, [rax + r8 + elf64_phdr.paddr]	; physical address requested
+		mov rdi, [rax + r8 + elf64_phdr.paddr]		; physical address requested
 		rep movsb
 
 		; increase by sizeof phdr struct
