@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::{self, BufWriter, Read, Seek, SeekFrom, Write};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 fn create_block(output: &str, blocks: usize) -> io::Result<BufWriter<File>> {
     let mut handle = BufWriter::new(File::create(output)?);
@@ -46,8 +46,14 @@ fn main() -> io::Result<()> {
 
     let data = kernel.metadata()?.len() as usize;
 
-    copy_to_file(&mut handle, &mut bootloader, 0x400)?;
-    assert_eq!(data, copy_to_file(&mut handle, &mut kernel, 0x800)?);
+    copy_to_file(&mut handle, &mut bootloader, 0)?;
+    assert_eq!(data, copy_to_file(&mut handle, &mut kernel, 0x400)?);
+
+    let mut qemu = Command::new("C:\\Program Files\\qemu\\qemu-system-x86_64")
+        .args(&["disk.img", "--monitor", "stdio"])
+        .current_dir("../")
+        .spawn()?;
+
 
     Ok(())
 }
