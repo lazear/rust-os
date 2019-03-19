@@ -1,4 +1,0 @@
-[target.unknown-none]
-rustflags = [
-    "-C", "link-arg=-linker.ld"
-]
