@@ -33,16 +33,16 @@ fn copy_to_file<W: Write + Seek, R: Read>(
 
 fn main() -> io::Result<()> {
     let mut build = Command::new("cargo")
-        .current_dir("../kernel")
+        .current_dir("kernel")
         .args(&["xbuild", "--target", "target.json", "--release"])
         .spawn()?;
     if !build.wait()?.success() {
         panic!("Error executing cargo xbuild");
     }
 
-    let mut handle = create_block("../disk.img", 0x1000)?;
-    let mut bootloader = File::open("../bootloader/bootstrap")?;
-    let mut kernel = File::open("../kernel/target/target/release/rust-os")?;
+    let mut handle = create_block("disk.img", 0x1000)?;
+    let mut bootloader = File::open("bootloader/bootstrap")?;
+    let mut kernel = File::open("./target/target/release/rust-os")?;
 
     let data = kernel.metadata()?.len() as usize;
 
@@ -51,9 +51,7 @@ fn main() -> io::Result<()> {
 
     let mut qemu = Command::new("C:\\Program Files\\qemu\\qemu-system-x86_64")
         .args(&["disk.img", "--monitor", "stdio"])
-        .current_dir("../")
         .spawn()?;
-
 
     Ok(())
 }
