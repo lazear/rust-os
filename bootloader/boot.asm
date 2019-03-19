@@ -1,6 +1,6 @@
 ;==============================================================================
 ;MIT License
-;Copyright (c) 2007-2016 Michael Lazear
+;Copyright (c) 2007-2019 Michael Lazear
 ;
 ;Permission is hereby granted, free of charge, to any person obtaining a copy
 ;of this software and associated documentation files (the "Software"), to deal
@@ -52,42 +52,46 @@ jmp 0:entry
 ; 0x0000:0x7C00
 entry:
 
-	cli 				; Turn off interrupts
+	; disable interrupts and set all segments to 0
+	cli
 	xor ax, ax
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
 	mov gs, ax
 
-	; Bochs is requires 64K of stack space to read
-	; 128 sectors
-	; God, real mode is dumb
+	; Bochs requires 64K of stack space to read 128 sectors,
+	; so we setup the stack segment to give us this space
 	mov ax, 0x8c00
 	mov ss, ax
 	mov sp, 0
 
-
-	in al, 0x92			; enable a20
+	; enable A20 line
+	in al, 0x92
 	or al, 2
 	out 0x92, al
-	;and dl, 0x80
+
+	; now prepare to read the read the next sector which contains
+	; the rest of the code for the bootloader
 	mov [drive], dl
 	mov ax, 0
 	int 13h
 	call read_disk
 	
-	; Clear ax register, set all segments to zero
+
+	;call video_mode
 
 
+	; memory mapping function
 	mov di, 0x7000
 	call memory_map
 	mov ax, di 
 	sub ax, 0x7000
 	mov di, 0x6FF0
 	mov [di], ax
+
+	; clear ax and load the Global Descriptor Table
 	xor ax, ax
-	
-	; Load the Global Descriptor Table
 	lgdt [gdt_desc] 	
 
 	; Set bit 1 of CR0 - enable 32 bit mode
@@ -110,6 +114,7 @@ read_disk:
 	.error:
 		hlt
 
+; Reserve some space for our disk packet
 packet:
 	db	0x10	; packet size (16 bytes)
 	db	0		; always 0
@@ -145,34 +150,34 @@ memory_map:
 	je short .fail
 	jmp short .loop
 
-.e820lp:
-	mov eax, 0xe820				; eax, ecx get trashed on every int 0x15 call
-	mov [es:di + 20], dword 1	; force a valid ACPI 3.X entry
-	mov ecx, 24					; ask for 24 bytes again
-	int 0x15
-	jc short .done				; carry set means "end of list already reached"
-	mov edx, 0x0534D4150		; repair potentially trashed register
-.loop:
-	jcxz .skip					; skip any 0 length entries
-	cmp cl, 20					; got a 24 byte ACPI 3.X response?
-	jbe short .notext
-	test byte [es:di + 20], 1	; if so: is the "ignore this data" bit clear?
-	je short .skip
-.notext:
-	mov ecx, [es:di + 8]		; get lower uint32_t of memory region length
-	or ecx, [es:di + 12]		; "or" it with upper uint32_t to test for zero
-	jz .skip					; if length uint64_t is 0, skip entry
-	add di, 24
-	
-.skip:
-	test ebx, ebx				; if ebx resets to 0, list is complete
-	jne short .e820lp
-.done:
-	clc							; there is "jc" on end of list to this point, so the carry must be cleared
-	ret
-.fail:
-	stc							; "function unsupported" error exit
-	ret
+	.e820lp:
+		mov eax, 0xe820				; eax, ecx get trashed on every int 0x15 call
+		mov [es:di + 20], dword 1	; force a valid ACPI 3.X entry
+		mov ecx, 24					; ask for 24 bytes again
+		int 0x15
+		jc short .done				; carry set means "end of list already reached"
+		mov edx, 0x0534D4150		; repair potentially trashed register
+	.loop:
+		jcxz .skip					; skip any 0 length entries
+		cmp cl, 20					; got a 24 byte ACPI 3.X response?
+		jbe short .notext
+		test byte [es:di + 20], 1	; if so: is the "ignore this data" bit clear?
+		je short .skip
+	.notext:
+		mov ecx, [es:di + 8]		; get lower uint32_t of memory region length
+		or ecx, [es:di + 12]		; "or" it with upper uint32_t to test for zero
+		jz .skip					; if length uint64_t is 0, skip entry
+		add di, 24
+		
+	.skip:
+		test ebx, ebx				; if ebx resets to 0, list is complete
+		jne short .e820lp
+	.done:
+		clc							; there is "jc" on end of list to this point, so the carry must be cleared
+		ret
+	.fail:
+		stc							; "function unsupported" error exit
+		ret
 
 ;==============================================================================
 ; Disk sector 1
@@ -180,10 +185,10 @@ memory_map:
 [BITS 32]
 protected_mode:
 	; clear VGA display
-	; mov eax, 0x0700
-	; mov ecx, 80*25
-	; mov edi, 0xB8000
-	; rep stosw
+	mov eax, 0x0700
+	mov ecx, 80*25
+	mov edi, 0xB8000
+	rep stosw
 	xor eax, eax
 
 	; Reload segment registers
@@ -193,9 +198,6 @@ protected_mode:
 	mov ss, ax
 	mov fs, ax
 	mov gs, ax
-
-	; Set up a stack
-	;mov esp, 0x000F0000
 
 	; check to make sure we can use extended functions
 	mov eax, 0x80000000
@@ -226,6 +228,11 @@ nolongmode:
 		jmp .loop
 	.done:
 	hlt 
+
+
+times 510-($-$$) db 0 		; Fill up the file with zeros
+dw 0xAA55 					; Last 2 bytes = Boot sector identifyer
+
 
 preplongmode:
 	; set CR3 to PML4 address, and clear all entries
@@ -263,17 +270,17 @@ preplongmode:
 
 	mov edi, [paging.pt]
 	mov esi, [paging.pt2]
-	mov eax, 3
-	mov edx, 0x00200003
-	mov ecx, 512
+	mov eax, 3				; map from 0 -> 2 Gb
+	mov edx, 0x00200003		; set pagings flags
+	mov ecx, 512			; Map an entire page table, 512 entries
 	.loop:
-		mov [esi], edx 
-		mov [edi], eax 
+		mov [esi], edx 		; esi contains address of PT2
+		mov [edi], eax 		; edi contains address of PT1
 		add eax, 0x1000 
 		add edx, 0x1000 
-		add esi, 8
-		add edi, 8 
-		loop .loop
+		add esi, 8			; go to next entry
+		add edi, 8 			; go to next entry
+		loop .loop			; if ECX != 0 then jmp .loop
 
 	; Set LME bit in EFER MSR, which is bit 8
 	mov ecx, 0xC0000080
@@ -303,8 +310,14 @@ preplongmode:
 	hlt
 
 
-times 510-($-$$) db 0 		; Fill up the file with zeros
-dw 0xAA55 					; Last 2 bytes = Boot sector identifyer
+
+[BITS 16]
+video_mode:
+	mov ah, 0
+	mov al, 0x13
+	int 0x10 
+	ret
+
 
 ;==============================================================================
 [BITS 64]
