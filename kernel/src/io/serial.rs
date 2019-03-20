@@ -1,10 +1,14 @@
 use super::{Io, Port};
+use crate::sync::{Once, Mutex, Global};
 use core::fmt;
+
+global!(Serial);
 
 pub struct Serial {
     input: Port<u8>,
     output: Port<u8>,
 }
+
 
 const COM1: u16 = 0x3F8;
 
@@ -30,10 +34,10 @@ impl Io for Serial {
     fn read(&self) -> u8 {
         while self.input.read() & 0x1 == 0 {}
         self.output.read()
-    } 
+    }
 
     fn write(&mut self, src: u8) {
-        while self.input.read() & 0x20 == 0 { }
+        while self.input.read() & 0x20 == 0 {}
         self.output.write(src)
     }
 }

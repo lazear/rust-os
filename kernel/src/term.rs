@@ -1,5 +1,10 @@
 use super::io::{Io, Port, Volatile};
-use core::ptr;
+
+use super::sync::{Once, Mutex, Global};
+
+// global: Mutex<Writer> = Mutex::default();
+
+global!(Writer);
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,9 +36,7 @@ impl TermColor {
     pub fn new(fg: Color, bg: Color) -> TermColor {
         TermColor((fg as u8) | ((bg as u8) << 4))
     }
-}
 
-impl Default for TermColor {
     fn default() -> TermColor {
         TermColor::new(Color::White, Color::Black)
     }
@@ -66,7 +69,7 @@ impl Default for Writer {
         Writer {
             buffer: unsafe { &mut *(0xB8000 as *mut _) },
             pos: 0,
-            color: TermColor::default()
+            color: TermColor::default(),
         }
     }
 }
@@ -79,8 +82,7 @@ impl core::fmt::Write for Writer {
 }
 
 impl Writer {
-
-    /// Update VGA cursor position 
+    /// Update VGA cursor position
     fn move_cursor(&self) {
         let mut d4: Port<u16> = Port::new(0x03D4);
         let mut d5: Port<u16> = Port::new(0x03D5);

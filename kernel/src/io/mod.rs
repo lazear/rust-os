@@ -1,10 +1,10 @@
 mod port;
-mod volatile;
 mod serial;
+mod volatile;
 
 pub use port::Port;
-pub use volatile::Volatile;
 pub use serial::Serial;
+pub use volatile::Volatile;
 
 pub trait Io {
     type Value;

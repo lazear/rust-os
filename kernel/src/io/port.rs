@@ -37,7 +37,6 @@ macro_rules! port_decl {
     };
 }
 
-
 port_decl!(u8);
 port_decl!(u16);
 port_decl!(u32);

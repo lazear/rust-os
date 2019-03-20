@@ -1,40 +1,48 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_main)]
 #![feature(asm, panic_info_message)]
 
+#[macro_use]
+mod sync;
 mod io;
 mod term;
 
 use io::{Io, Serial};
 use term::Color;
+use sync::Global;
 
 use core::fmt::Write;
 use core::panic::PanicInfo;
 
-
 #[cfg_attr(not(test), panic_handler)]
 fn panic(info: &PanicInfo) -> ! {
-    let mut serial = Serial::default();
-    
+    let mut serial = Serial::global().lock();
+
     let _ = if let Some(loc) = info.location() {
-        write!(serial, "Panic occured at file {} {}:{}\n", loc.file(), loc.line(), loc.column())
+        write!(
+            serial,
+            "Panic occured at file {} {}:{}\n",
+            loc.file(),
+            loc.line(),
+            loc.column()
+        )
     } else {
         write!(serial, "Panic:\n")
     };
     if let Some(args) = info.message() {
         let _ = serial.write_fmt(*args);
-    }    
+    }
     loop {}
 }
 
-
+#[cfg(not(test))]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    let mut writer = term::Writer::default();
+    let mut writer = term::Writer::global().lock();
+
     writer.set_color(Color::White, Color::Magenta);
-    writer
-        .write_str("Hello from rust")
-        .unwrap();
-    
+    writer.write_str("Hello from rust").unwrap();
+
     writer.set_color(Color::LightGray, Color::Black);
 
     unsafe {
