@@ -1,10 +1,10 @@
 use super::io::{Io, Port, Volatile};
 
-use super::sync::{Once, Mutex, Global};
+use super::sync::{Global, Mutex, Once};
 
-// global: Mutex<Writer> = Mutex::default();
+// global: Mutex<Terminal> = Mutex::default();
 
-global!(Writer);
+global!(Terminal);
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,15 +58,15 @@ impl Character {
     }
 }
 
-pub struct Writer {
+pub struct Terminal {
     buffer: &'static mut [[Volatile<Character>; 80]; 25],
     pos: usize,
     color: TermColor,
 }
 
-impl Default for Writer {
-    fn default() -> Writer {
-        Writer {
+impl Default for Terminal {
+    fn default() -> Terminal {
+        Terminal {
             buffer: unsafe { &mut *(0xB8000 as *mut _) },
             pos: 0,
             color: TermColor::default(),
@@ -74,14 +74,14 @@ impl Default for Writer {
     }
 }
 
-impl core::fmt::Write for Writer {
+impl core::fmt::Write for Terminal {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         s.chars().for_each(|ch| self.write_char(ch));
         Ok(())
     }
 }
 
-impl Writer {
+impl Terminal {
     /// Update VGA cursor position
     fn move_cursor(&self) {
         let mut d4: Port<u16> = Port::new(0x03D4);
@@ -116,6 +116,7 @@ impl Writer {
             self.buffer[24][c].write(Character::new(' ', self.color));
         }
         self.pos = 0;
+        self.move_cursor();
     }
 
     /// Set the default color for the terminal

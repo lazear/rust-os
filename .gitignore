@@ -2,4 +2,4 @@
 **/*.rs.bk
 /build
 Cargo.lock
-
+*.txt

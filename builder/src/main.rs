@@ -58,7 +58,7 @@ fn main() -> io::Result<()> {
 
     let nasm = Command::new("nasm")
         .current_dir("bootloader")
-        .args(&["-f", "bin", "boot.asm", "-o", "../build/bootstrap.bin"])
+        .args(&["-f", "bin", "stage1.asm", "-o", "../build/bootstrap.bin"])
         .spawn()?
         .wait()?
         .success();

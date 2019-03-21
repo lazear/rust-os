@@ -1,5 +1,5 @@
 use super::{Io, Port};
-use crate::sync::{Once, Mutex, Global};
+use crate::sync::{Global, Mutex, Once};
 use core::fmt;
 
 global!(Serial);
@@ -8,7 +8,6 @@ pub struct Serial {
     input: Port<u8>,
     output: Port<u8>,
 }
-
 
 const COM1: u16 = 0x3F8;
 

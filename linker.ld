@@ -8,26 +8,29 @@ SECTIONS
 {
 
     . = KERNEL_VIRT + KERNEL_PHYS;
+    . += SIZEOF_HEADERS;
     
     _kernel_start = .;
     .text ALIGN(0x1000) : AT(ADDR(.text) - KERNEL_VIRT)
     {
-        *(.text)
+        *(.text .text.*)
+    }
 
+    .rodata ALIGN(0x1000) : AT(ADDR(.rodata) - KERNEL_VIRT) 
+    {
+        *(.rodata .rodata.*)
     }
 
    .data ALIGN(0x1000) : AT(ADDR(.data) - KERNEL_VIRT)
    {
-        *(.data)
+        *(.padata)
         . = ALIGN(0x1000);
-        *(.rodata)
-        . = ALIGN(0x1000);
-        *(.tdata)
+        *(.data .data.*)
    }
 
    .bss ALIGN(0x1000): AT(ADDR(.bss) -  KERNEL_VIRT)
    {
-       *(.bss)
+       *(.bss .bss.*)
         *(COMMON)
    }
 
@@ -37,6 +40,7 @@ SECTIONS
    /DISCARD/ :
    {
         *(.comment)
+        *(.note .note.*)
     }
 }
 

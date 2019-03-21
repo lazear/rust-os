@@ -1,8 +1,5 @@
 use core::cell::UnsafeCell;
-use core::mem;
-use core::sync::atomic::{spin_loop_hint, AtomicBool, Ordering};
-
-pub struct Lazy<T: Sync>(Once<T>);
+use core::sync::atomic::{AtomicBool, Ordering};
 
 pub struct Once<T> {
     state: AtomicBool,
@@ -44,11 +41,11 @@ mod test {
     #[test]
     #[should_panic]
     fn invalid_access() {
-        let INIT = Once::new();
+        let init = Once::new();
         unsafe {
-            assert_eq!(*INIT.get(), 10);
+            assert_eq!(*init.get(), 10);
         }
-        INIT.call_once(|| 10);
+        init.call_once(|| 10);
     }
 
     #[test]
