@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
-#[allow(dead_code)]
-#[repr(packed)]
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct Preserved {
     pub r15: usize,
     pub r14: usize,
@@ -11,8 +11,8 @@ pub struct Preserved {
     pub rbx: usize,
 }
 
-#[allow(dead_code)]
-#[repr(packed)]
+#[derive(Debug, Copy, Clone)]
+#[repr(C)]
 pub struct Scratch {
     pub r11: usize,
     pub r10: usize,
@@ -25,20 +25,9 @@ pub struct Scratch {
     pub rax: usize,
 }
 
-// #[allow(dead_code)]
-// #[repr(packed)]
-// struct StackPreserved {
-//     pub fs: usize,
-//     pub preserved: Preserved,
-//     pub scratch: Scratch,
-//     pub error_code: usize,
-//     pub rip: usize,
-//     pub cs: usize,
-//     pub rflags: usize,
-// }
 
-#[allow(dead_code)]
-#[repr(packed)]
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct InterruptErrorStack {
     pub fs: usize,
     pub preserved: Preserved,
@@ -49,8 +38,8 @@ pub struct InterruptErrorStack {
     pub rflags: usize,
 }
 
-#[allow(dead_code)]
-#[repr(packed)]
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct InterruptStack {
     pub fs: usize,
     pub preserved: Preserved,
@@ -60,12 +49,19 @@ pub struct InterruptStack {
     pub rflags: usize,
 }
 
+impl core::fmt::Debug for Preserved {
+    fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(fmt, "rbx: {:#016X} rbp: {:#016X}\nr12: {:#016X} r13: {:#016X}\nr14: {:#016X} r15: {:#016X}\n",
+        self.rbx, self.rbp, self.r12, self.r13, self.r14, self.r15)
+    }
+}
+
 impl core::fmt::Debug for InterruptErrorStack {
     fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(
             fmt,
-            "error occurred at {:0X}:0x{:#016X} with flags {:#016X}!\n",
-            self.cs, self.rip, self.rflags
+            "error {} occurred at {:0X}:0x{:#016X} with flags {:#016X}!\n{:?}",
+            self.error_code, self.cs, self.rip, self.rflags, self.preserved
         )
     }
 }
@@ -74,8 +70,8 @@ impl core::fmt::Debug for InterruptStack {
     fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(
             fmt,
-            "error occurred at {:0X}:0x{:#016X} with flags {:#016X}!\n",
-            self.cs, self.rip, self.rflags
+            "error occurred at {:0X}:0x{:#016X} with flags {:#016X}!\n{:?}",
+            self.cs, self.rip, self.rflags, self.preserved
         )
     }
 }
@@ -87,7 +83,7 @@ macro_rules! push_preserved {
         push r12
         push r13
         push r14
-        push 15"
+        push r15"
         :::: "intel", "volatile"
     )};
 }

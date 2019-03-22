@@ -11,8 +11,9 @@ pub enum PrivilegeLevel {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-#[repr(C)]
+#[repr(C, packed)]
 pub struct DescriptorTablePtr {
-    base: usize,
     limit: u16,
+    base: usize,
+    
 }

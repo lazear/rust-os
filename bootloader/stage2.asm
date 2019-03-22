@@ -78,7 +78,7 @@ preplongmode:
 	
 [BITS 64]
 long_mode:
-	mov rax, 0xFFFFFFFF8000A000
+	mov rax, 0xFFFFFFFF80300000
 	mov rsp, rax
 	mov rbp, rax
 	mov rdi, data

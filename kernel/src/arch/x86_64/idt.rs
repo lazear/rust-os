@@ -3,10 +3,10 @@ use crate::prelude::*;
 use core::mem;
 use core::u16;
 
-
 global!(InterruptDescriptorTable);
 
-#[repr(C, align(16))]
+#[repr(align(32))]
+#[repr(C)]
 pub struct InterruptDescriptorTable {
     entries: [Entry; 256],
 }
@@ -50,19 +50,23 @@ impl InterruptDescriptorTable {
             limit: (mem::size_of::<Self>() - 1) as u16,
         };
         unsafe {
-            asm!("lidt ($0)" :: "r"(ptr) : "memory" : "intel", "volatile");
+            asm!("lidt ($0)" :: "r"(&ptr) : "memory" );
         }
+    }
+
+    pub fn entry(&mut self, index: u8) -> &mut Entry {
+        &mut self.entries[index as usize]
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
 pub struct Entry {
-    offset_low: u16,
+    pub offset_low: u16,
     segment_selector: u16,
     ty: EntryType,
-    offset_mid: u16,
-    offset_high: u32,
+    pub offset_mid: u16,
+    pub offset_high: u32,
     _res: u32,
 }
 
@@ -85,7 +89,9 @@ impl Entry {
         self.offset_low = addr as u16;
         self.offset_mid = (addr >> 16) as u16;
         self.offset_high = (addr >> 32) as u32;
-        self.segment_selector = 0x20;
+        self.segment_selector = 0x18;
+
+        self.ty.set_present(true);
     }
 }
 

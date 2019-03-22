@@ -8,32 +8,34 @@ use core::ops::Range;
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => {
-        $crate::prelude::print(format_args!($($arg)*));
-    };
+    ($($arg:tt)*) => ({
+            $crate::prelude::print(format_args!($($arg)*));
+    });
 }
 
 #[macro_export]
 macro_rules! println {
-    ($($arg:tt)*) => {
-        $crate::prelude::println(format_args!($($arg)*));
-    };
+    ($($arg:tt)*) => (
+        {
+            $crate::prelude::println(format_args!($($arg)*));
+        }
+       );
 }
 
 pub fn print(args: fmt::Arguments) {
     use fmt::Write;
     {
-        let mut term = Terminal::global().lock();
-        let _ = term.write_fmt(args);
+        let term = unsafe { Terminal::global().force() };
+        term.write_fmt(args).unwrap();
     }
 }
 
 pub fn println(args: fmt::Arguments) {
     use fmt::Write;
     {
-        let mut term = Terminal::global().lock();
-        let _ = term.write_fmt(args);
-        term.write_char('\n');
+        let term = unsafe { Terminal::global().force() };
+        term.write_fmt(args).unwrap();
+        term.write_char('\n').unwrap();
     }
 }
 

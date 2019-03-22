@@ -1,8 +1,11 @@
 mod init;
 mod mutex;
 
-pub use init::Once;
+//pub use init::Once;
 pub use mutex::{Mutex, MutexGuard};
+
+use spin;
+pub use spin::Once;
 
 /// Trait that automatically generates a globl variable wrapping a struct
 /// behind a `Once<Mutex<T>>`, along with an associated function for the
@@ -29,12 +32,18 @@ macro_rules! global {
             }
         }
     };
+
     ($T:ty, $func:block) => {
         static __GLOBAL: $crate::sync::Once<$crate::sync::Mutex<$T>> = $crate::sync::Once::new();
         impl $crate::sync::Global for $T {
             #[inline(always)]
             fn global<'a>() -> &'a crate::sync::Mutex<$T> {
-                __GLOBAL.call_once(|| crate::sync::Mutex::new($func))
+                #[inline(never)]
+                fn inner() -> $T {
+                    $func
+                }
+
+                __GLOBAL.call_once(|| crate::sync::Mutex::new(inner()))
             }
         }
     };

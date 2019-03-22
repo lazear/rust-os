@@ -40,6 +40,7 @@ impl<T: ?Sized> Mutex<T> {
 
     /// Unsafe if the function is called on a thread that does not own the
     /// Mutex's lock
+    #[inline(always)]
     unsafe fn release(&self) {
         self.lock.store(false, Ordering::Release);
     }

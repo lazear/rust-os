@@ -1,5 +1,5 @@
 use core::cell::UnsafeCell;
-use core::sync::atomic::{AtomicUsize, Ordering, spin_loop_hint};
+use core::sync::atomic::{spin_loop_hint, AtomicUsize, Ordering};
 
 pub struct Once<T> {
     state: AtomicUsize,
@@ -31,22 +31,24 @@ impl<T> Once<T> {
     pub fn call_once<'a, F: FnOnce() -> T>(&'a self, func: F) -> &'a T {
         let mut state = self.state.load(Ordering::SeqCst);
         if state == EMPTY {
-            state = self.state.compare_and_swap(EMPTY, RUNNING, Ordering::SeqCst);
+            state = self
+                .state
+                .compare_and_swap(EMPTY, RUNNING, Ordering::SeqCst);
             if state == EMPTY {
-                unsafe{ *self.inner.get() = Some(func()));
+                unsafe { *self.inner.get() = Some(func()) };
                 state = FINISH;
                 self.state.store(state, Ordering::SeqCst);
-                return unsafe { self.get() }; 
+                return unsafe { self.get() };
             }
         }
         loop {
             match state {
                 FINISH => return unsafe { self.get() },
                 RUNNING => {
-                 //   spin_loop_hint();
+                    spin_loop_hint();
                     state = self.state.load(Ordering::SeqCst);
-                },
-                _ => unreachable!()
+                }
+                _ => unreachable!(),
             }
         }
     }

@@ -51,10 +51,7 @@ pub struct Character {
 
 impl Character {
     fn new(ch: u8, color: TermColor) -> Character {
-        Character {
-            ch,
-            color,
-        }
+        Character { ch, color }
     }
 }
 
@@ -97,7 +94,11 @@ impl Terminal {
     fn write_character(&mut self, ch: Character) {
         match ch.ch as char {
             '\n' => return self.newline(),
-            _ => {}
+            _ => {
+                if self.pos == 79 {
+                    self.newline();
+                }
+            }
         }
         self.buffer[24][self.pos].write(ch);
         self.pos += 1;

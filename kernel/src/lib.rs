@@ -1,7 +1,7 @@
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(not(test), no_main)]
 #![feature(asm, panic_info_message, naked_functions)]
-
+#![allow(dead_code)]
 #[macro_use]
 mod sync;
 
@@ -27,18 +27,8 @@ use core::panic::PanicInfo;
 #[allow(dead_code)]
 #[cfg_attr(not(test), panic_handler)]
 fn panic(info: &PanicInfo) -> ! {
-    let mut serial = Serial::global().lock();
-    let vga = unsafe { term::Terminal::global().force() };
-    vga.set_color(Color::Red, Color::Black);
-
+    let mut serial = unsafe { Serial::global().force() };
     if let Some(loc) = info.location() {
-        vga.write_fmt(format_args!(
-            "\nPanic occured at file {} {}:{}: ",
-            loc.file(),
-            loc.line(),
-            loc.column()
-        ))
-        .unwrap();
         serial
             .write_fmt(format_args!(
                 "\nPanic occured at file {} {}:{}: ",
@@ -49,12 +39,10 @@ fn panic(info: &PanicInfo) -> ! {
             .unwrap();
     } else {
         let args = format_args!("\nPanic occured at unknown location: ");
-        vga.write_fmt(args).unwrap();
         serial.write_fmt(args).unwrap();
     }
 
     if let Some(args) = info.message() {
-        let _ = vga.write_fmt(*args);
         let _ = serial.write_fmt(*args);
     }
     loop {}
@@ -63,18 +51,31 @@ fn panic(info: &PanicInfo) -> ! {
 #[cfg(not(test))]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    println!("Hello from Rust!");
-    unsafe {
-        let bit: *mut usize = 0xFFFF_FFFF_8010_1000 as *mut usize;
-        println!("\nbytes at 0x{:0x} = 0x{:0x}", bit as usize, *bit);
-    }
-    
+    println!("Hello!");
+    arch::instructions::Interrupts::disable();
     {
         let idt = arch::idt::InterruptDescriptorTable::global().lock();
-        //println!("idt @ {:#016X}", &*idt as *const _ as usize);
+        println!("{:0X}", &*idt as *const _ as usize);
+        idt.load();
     }
-    
-    
+
+    {
+        let mut idt = arch::idt::InterruptDescriptorTable::global().lock();
+         for i in 0..=255 {
+            let s = idt.entry(i);
+            let empty = arch::idt::Entry::empty();
+            if s == &empty {
+                continue;
+            }
+            unsafe {
+                let addr: u64 = s.offset_low as u64
+                    | (s.offset_mid as u64) << 16
+                    | (s.offset_high as u64) << 32;
+                println!("{} {:0X}", i, addr);
+            }
+        }
+    }
+
     let cr3 = arch::instructions::cr3();
 
     let pml4 = unsafe { core::slice::from_raw_parts(cr3 as *const u64, 512) };
@@ -121,5 +122,14 @@ pub extern "C" fn _start() -> ! {
     }
 
     println!("cr3 = 0x{:#016X}", cr3);
+   // arch::instructions::Interrupts::enable();
+
+    let mut ptr = 0xDEADBEEF as *mut usize;
+    unsafe {
+        asm!("int3");
+
+        //*ptr = 10;
+    }
+    
     loop {}
 }
