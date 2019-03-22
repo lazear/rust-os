@@ -1,5 +1,6 @@
 pub mod idt;
-pub mod intrinsics;
+pub mod instructions;
+pub mod interrupts;
 
 #[repr(u16)]
 pub enum PrivilegeLevel {
@@ -7,4 +8,11 @@ pub enum PrivilegeLevel {
     Ring1,
     Ring2,
     Ring3,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+#[repr(C)]
+pub struct DescriptorTablePtr {
+    base: usize,
+    limit: u16,
 }

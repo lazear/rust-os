@@ -1,18 +1,22 @@
 use core::cell::UnsafeCell;
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering, spin_loop_hint};
 
 pub struct Once<T> {
-    state: AtomicBool,
+    state: AtomicUsize,
     inner: UnsafeCell<Option<T>>,
 }
 
 unsafe impl<T: Send + Sync> Sync for Once<T> {}
 unsafe impl<T: Send> Send for Once<T> {}
 
+const EMPTY: usize = 0;
+const RUNNING: usize = 1;
+const FINISH: usize = 2;
+
 impl<T> Once<T> {
     pub const fn new() -> Once<T> {
         Once {
-            state: AtomicBool::new(false),
+            state: AtomicUsize::new(EMPTY),
             inner: UnsafeCell::new(None),
         }
     }
@@ -25,12 +29,26 @@ impl<T> Once<T> {
     }
 
     pub fn call_once<'a, F: FnOnce() -> T>(&'a self, func: F) -> &'a T {
-        if !self.state.compare_and_swap(false, true, Ordering::Acquire) {
-            unsafe {
-                *self.inner.get() = Some(func());
+        let mut state = self.state.load(Ordering::SeqCst);
+        if state == EMPTY {
+            state = self.state.compare_and_swap(EMPTY, RUNNING, Ordering::SeqCst);
+            if state == EMPTY {
+                unsafe{ *self.inner.get() = Some(func()));
+                state = FINISH;
+                self.state.store(state, Ordering::SeqCst);
+                return unsafe { self.get() }; 
             }
         }
-        unsafe { self.get() }
+        loop {
+            match state {
+                FINISH => return unsafe { self.get() },
+                RUNNING => {
+                 //   spin_loop_hint();
+                    state = self.state.load(Ordering::SeqCst);
+                },
+                _ => unreachable!()
+            }
+        }
     }
 }
 

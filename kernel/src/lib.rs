@@ -1,13 +1,19 @@
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(not(test), no_main)]
-#![feature(asm, panic_info_message)]
+#![feature(asm, panic_info_message, naked_functions)]
 
 #[macro_use]
 mod sync;
-mod io;
+
+#[macro_use]
 mod prelude;
-mod term;
+
+#[macro_use]
 mod arch;
+
+mod io;
+
+mod term;
 
 use prelude::*;
 
@@ -57,18 +63,22 @@ fn panic(info: &PanicInfo) -> ! {
 #[cfg(not(test))]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
+    println!("Hello from Rust!");
     unsafe {
         let bit: *mut usize = 0xFFFF_FFFF_8010_1000 as *mut usize;
         println!("\nbytes at 0x{:0x} = 0x{:0x}", bit as usize, *bit);
     }
-
-    println!("Hello from Rust!");
-    let cr3 = arch::x86_64::intrinsics::cr3();
-
-    let pml4 = unsafe {
-        core::slice::from_raw_parts(cr3 as *const u64, 512)
-    };
     
+    {
+        let idt = arch::idt::InterruptDescriptorTable::global().lock();
+        //println!("idt @ {:#016X}", &*idt as *const _ as usize);
+    }
+    
+    
+    let cr3 = arch::instructions::cr3();
+
+    let pml4 = unsafe { core::slice::from_raw_parts(cr3 as *const u64, 512) };
+
     {
         let mut stdout = Serial::global().lock();
         for (idx, entry) in pml4.iter().enumerate() {
@@ -83,7 +93,12 @@ pub extern "C" fn _start() -> ! {
             };
 
             vaddr.set_bits(48..vaddr.bits(), fill);
-            stdout.write_fmt(format_args!("PML4 entry {} {:0x} {:#016x}\n", idx, entry, vaddr)).unwrap();
+            stdout
+                .write_fmt(format_args!(
+                    "PML4 entry {} {:0x} {:#016x}\n",
+                    idx, entry, vaddr
+                ))
+                .unwrap();
 
             let pml3 = unsafe {
                 let p = *entry & !(0xFFF);
@@ -95,15 +110,16 @@ pub extern "C" fn _start() -> ! {
                     continue;
                 }
                 let mut vaddr3: u64 = vaddr | (idx as u64) << 30;
-                stdout.write_fmt(format_args!("PML3 entry {} {:0x} {:#016x}\n", idx3, entry3, vaddr3)).unwrap();
+                stdout
+                    .write_fmt(format_args!(
+                        "PML3 entry {} {:0x} {:#016x}\n",
+                        idx3, entry3, vaddr3
+                    ))
+                    .unwrap();
             }
         }
     }
 
     println!("cr3 = 0x{:#016X}", cr3);
-
-
-  //  panic!("Panic!");
-
     loop {}
 }

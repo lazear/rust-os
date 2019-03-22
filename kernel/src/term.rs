@@ -50,9 +50,9 @@ pub struct Character {
 }
 
 impl Character {
-    fn new(ch: char, color: TermColor) -> Character {
+    fn new(ch: u8, color: TermColor) -> Character {
         Character {
-            ch: ch as u8,
+            ch,
             color,
         }
     }
@@ -76,7 +76,7 @@ impl Default for Terminal {
 
 impl core::fmt::Write for Terminal {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        s.chars().for_each(|ch| self.write_char(ch));
+        s.bytes().for_each(|b| self.write_byte(b));
         Ok(())
     }
 }
@@ -113,7 +113,7 @@ impl Terminal {
             }
         }
         for c in 0..self.pos {
-            self.buffer[24][c].write(Character::new(' ', self.color));
+            self.buffer[24][c].write(Character::new(0u8, self.color));
         }
         self.pos = 0;
         self.move_cursor();
@@ -124,7 +124,7 @@ impl Terminal {
         self.color = TermColor::new(fg, bg);
     }
 
-    pub fn write_char(&mut self, ch: char) {
+    pub fn write_byte(&mut self, ch: u8) {
         self.write_character(Character::new(ch, self.color));
     }
 }

@@ -22,15 +22,19 @@ macro_rules! println {
 
 pub fn print(args: fmt::Arguments) {
     use fmt::Write;
-    let mut term = Terminal::global().lock();
-    term.write_fmt(args).unwrap();
+    {
+        let mut term = Terminal::global().lock();
+        let _ = term.write_fmt(args);
+    }
 }
 
 pub fn println(args: fmt::Arguments) {
     use fmt::Write;
-    let mut term = Terminal::global().lock();
-    term.write_fmt(args).unwrap();
-    term.write_char('\n');
+    {
+        let mut term = Terminal::global().lock();
+        let _ = term.write_fmt(args);
+        term.write_char('\n');
+    }
 }
 
 pub trait BitField {
@@ -40,8 +44,11 @@ pub trait BitField {
     fn set_bit(&mut self, bit: u8, value: bool);
     fn set_bits(&mut self, bits: Range<u8>, value: Self);
 
-    /// Return an iterator over the bits in 
-    fn bit_iter(&self) -> BitfieldIterator<Self> where Self: Copy {
+    /// Return an iterator over the bits in
+    fn bit_iter(&self) -> BitfieldIterator<Self>
+    where
+        Self: Copy,
+    {
         BitfieldIterator {
             inner: *self,
             fwd_bit: 0,
@@ -53,7 +60,7 @@ pub trait BitField {
 pub struct BitfieldIterator<T: BitField> {
     fwd_bit: u8,
     rev_bit: Option<u8>,
-    inner: T,    
+    inner: T,
 }
 
 impl<T: BitField> Iterator for BitfieldIterator<T> {
@@ -74,13 +81,9 @@ impl<T: BitField> DoubleEndedIterator for BitfieldIterator<T> {
         match self.rev_bit.take() {
             Some(n) => {
                 let val = self.inner.get_bit(n);
-                self.rev_bit = if n == 1 {
-                    None
-                } else {
-                    Some(n - 1)
-                };
+                self.rev_bit = if n == 1 { None } else { Some(n - 1) };
                 Some(val)
-            },
+            }
             None => None,
         }
     }
@@ -171,8 +174,7 @@ mod bitfield_test {
     #[test]
     fn bit_iter() {
         let f = 0b1110_0101u8;
-        let r = vec![true, false, true, false,
-        false, true, true, true];
+        let r = vec![true, false, true, false, false, true, true, true];
         assert_eq!(f.bit_iter().collect::<Vec<bool>>(), r);
     }
 }
