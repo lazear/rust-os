@@ -1,5 +1,6 @@
 [BITS 32]
 [global preplongmode]
+[global mmap_len]
 
 preplongmode:
 	; set CR3 to PML4 address, and clear all entries
@@ -188,15 +189,32 @@ load_elf:
 	mov [elf_ptr], rdi
 	mov r10, [rdi + elf64_ehdr.ehsize]
 	mov [elf_len], r10
-	xor rax, rax
-	mov rax, [0x6FF0]
-	mov bl, 24
-	div bl
-	mov [mmap_len], al
+	; clear rax, load it with the size of the memory mapping table
+	; that we saved at 0x6FF0 earlier.
+	; TODO - save this value directly to the memory location of
+	; mmap_len
+	; regardless, we load it and then divide by the size (24 bytes)
+	; to get the number of entries. We can then just directly pass
+	; this to the Rust code, which will construct a slice from the
+	; ptr, len pair
+	;xor rax, rax
+	;mov rax, [0x6FF0]
+	; only use the lowest byte 
+	;mov bl, 24
+	;div bl
+	;mov [mmap_len], al
+	; load rdi with the address of the boot_struct object, rdi is
+	; the register in which the first argument is stored in the Sys V
+	; ABI, so we can directly access it in the Rust code 
 	lea rdi, [boot_struct]
-
+	
+	; entry point was stored in r9
 	call r9
-	ret
+
+	; this should be unreachable!
+	cli
+	hlt
+
 
 boot_struct:
 	mmap_ptr: dq 0x7000

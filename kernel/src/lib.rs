@@ -11,6 +11,7 @@ mod arch;
 mod elf;
 mod io;
 mod memory;
+mod paging;
 mod term;
 
 use prelude::*;
@@ -59,18 +60,15 @@ extern "C" fn _start(info: &'static MemoryMapInfo) -> ! {
         idt.load();
     }
 
-    unsafe {
-        println!("{:0X} {:0X}", _kernel_start as usize, _kernel_end as usize);
-    }
+    println!(
+        "kernel pages: {:?}",
+        paging::TableIndices::from_virt(info.elf_ptr as usize)
+    );
 
     let mut allocator = memory::physical::allocator::BumpAllocator::new(info);
 
     let ehdr = unsafe { core::slice::from_raw_parts(info.elf_ptr, info.elf_len) };
     let elf = elf::Elf::from(ehdr);
-
-    for segment in elf.segments {
-        println!("{:0X} {:0X}", segment.vaddr, segment.mem_size);
-    }
 
     let cr3 = arch::instructions::cr3();
 
@@ -92,8 +90,16 @@ extern "C" fn _start(info: &'static MemoryMapInfo) -> ! {
             vaddr.set_bits(48..vaddr.bits(), fill);
             stdout
                 .write_fmt(format_args!(
-                    "PML4 entry {} {:0x} {:#016x}\n",
-                    idx, entry, vaddr
+                    "PML4 entry {} {:0x} {:#016x} projected {:#016X}\n",
+                    idx,
+                    entry,
+                    vaddr,
+                    paging::TableIndices::to_virt(paging::TableIndices {
+                        level4: idx,
+                        level3: 0,
+                        level2: 0,
+                        level1: 0,
+                    })
                 ))
                 .unwrap();
 
@@ -120,11 +126,11 @@ extern "C" fn _start(info: &'static MemoryMapInfo) -> ! {
     println!("cr3 = 0x{:#016X}", cr3);
     //arch::interrupts::enable();
 
-    // let mut ptr = 0xDEADBEEF as *mut usize;
+    let mut ptr = 0xDEADBEEF as *mut usize;
     unsafe {
-        asm!("int3");
+        //asm!("int3");
 
-        asm!("int3");
+        //asm!("int3");
         //*ptr = 10;
     }
 

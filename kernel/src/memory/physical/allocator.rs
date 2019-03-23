@@ -1,5 +1,6 @@
 use super::*;
 
+#[derive(Debug)]
 pub struct BumpAllocator {
     first_frame: Frame,
     last_frame: Frame,

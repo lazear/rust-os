@@ -46,6 +46,7 @@
 
 
 [BITS 16]
+[global mmap_len]
 [ORG 0x7C00]
 jmp 0:entry
 
@@ -83,12 +84,20 @@ entry:
 
 
 	; memory mapping function
+	; we're going to store it at location 0x7000, the bootloader
+	; is loaded at 0x7C00 - is this enough space?
 	mov di, 0x7000
 	call memory_map
+	; after the call to memory_map, di points to the end of the 
+	; memory map object, so we can calculate it's total number of entries
+	; by dividing by the size of each entry in the memory map (24 bytes)
 	mov ax, di 
-	sub ax, 0x7000
-	mov di, 0x6FF0
-	mov [di], ax
+	sub ax, 0x7000		; substract the initial location
+	mov bx, 24		; store size of each entry
+	div bl			; quotient stored in ax
+	mov [mmap_len], al	; store the size of the memory map
+	;mov di, 0x6FF0
+	;mov [di], ax
 
 	; clear ax and load the Global Descriptor Table
 	xor ax, ax

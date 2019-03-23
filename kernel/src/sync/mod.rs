@@ -1,11 +1,11 @@
 mod init;
 mod mutex;
 
-//pub use init::Once;
+pub use init::Once;
 pub use mutex::{Mutex, MutexGuard};
 
-use spin;
-pub use spin::Once;
+//use spin;
+//pub use spin::Once;
 
 /// Trait that automatically generates a globl variable wrapping a struct
 /// behind a `Once<Mutex<T>>`, along with an associated function for the
