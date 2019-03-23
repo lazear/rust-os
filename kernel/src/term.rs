@@ -1,8 +1,6 @@
+//! VGA terminal writing utilities
 use super::io::{Io, Port, Volatile};
-
-use super::sync::{Global, Mutex, Once};
-
-// global: Mutex<Terminal> = Mutex::default();
+use super::sync::Global;
 
 global!(Terminal);
 
@@ -55,6 +53,7 @@ impl Character {
     }
 }
 
+/// Handles writing to the VGA 80*25 terminal
 pub struct Terminal {
     buffer: &'static mut [[Volatile<Character>; 80]; 25],
     pos: usize,

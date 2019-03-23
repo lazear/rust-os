@@ -2,11 +2,16 @@ use core::cell::UnsafeCell;
 use core::ops::{Deref, DerefMut};
 use core::sync::atomic::{spin_loop_hint, AtomicBool, Ordering};
 
+/// A synchronization primitive that guarantees mutually exclusive access
+/// to the wrapped data. Only one thread may have access at any given time
 pub struct Mutex<T: ?Sized> {
     lock: AtomicBool,
     inner: UnsafeCell<T>,
 }
 
+/// A [`MutexGuard`] guarantees exclusive access to the data contained in the
+/// owning [`Mutex`]. When the [`MutexGuard`] is dropped, the [`Mutex`] will
+/// automatically unlock
 pub struct MutexGuard<'a, T: ?Sized + 'a> {
     _mutex: &'a Mutex<T>,
 }
@@ -19,6 +24,7 @@ pub struct CriticalMutexGuard<'a, T: ?Sized + 'a> {
 }
 
 impl<T> Mutex<T> {
+    /// Initialize a new [`Mutex`] wrapping `data`
     pub fn new(data: T) -> Mutex<T> {
         Mutex {
             inner: UnsafeCell::new(data),
@@ -26,6 +32,23 @@ impl<T> Mutex<T> {
         }
     }
 
+    /// Consume the [`Mutex`], returning the interior data
+    ///
+    /// Due to Rust's ownership model, this method can only be called when
+    /// there are no outstanding [`MutexGuard`]'s with references to this
+    /// [`Mutex`]
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let m = Mutex::new(10u64);
+    /// // limit the lifetime of the `MutexGuard` g
+    /// {
+    ///     let g = m.lock();
+    ///     *g += 10;
+    /// }
+    /// assert_eq!(m.into_inner(), 20);
+    /// ````
     pub fn into_inner(self) -> T {
         self.inner.into_inner()
     }
@@ -45,6 +68,10 @@ impl<T: ?Sized> Mutex<T> {
         }
     }
 
+    /// Release the [`Mutex`]
+    ///
+    /// # Safety
+    ///
     /// Unsafe if the function is called on a thread that does not own the
     /// Mutex's lock
     #[inline(always)]
@@ -52,11 +79,23 @@ impl<T: ?Sized> Mutex<T> {
         self.lock.store(false, Ordering::Release);
     }
 
+    /// Forcefully obtain a mutable reference to the [`Mutex`]'s interior data,
+    /// regardless of whether the [`Mutex`] is currently locked.
+    ///
+    /// # Safety
+    ///
+    /// This function is *very* unsafe, and should only be used in situations
+    /// where the data can be safefully accessed during a potential deadlock
+    /// i.e. during an interrupt handler within the kernel operating on the
+    /// global VGA terminal lock
     pub unsafe fn force(&self) -> &mut T {
         &mut *self.inner.get()
     }
 
-    /// Attempt to lock the `Mutex`
+    /// Attempt to lock the `Mutex`, returning a new [`MutexGuard`] if the
+    /// [`Mutex`] was successfully locked by the caller.
+    ///
+    /// This function will not block
     pub fn try_lock(&self) -> Option<MutexGuard<T>> {
         // If lock was not held we just acquired it
         if self.lock.compare_and_swap(false, true, Ordering::Acquire) == false {
@@ -66,7 +105,7 @@ impl<T: ?Sized> Mutex<T> {
         }
     }
 
-    /// Block until the `Mutex` can be locked
+    /// Block until the [`Mutex`] can be locked
     pub fn lock(&self) -> MutexGuard<T> {
         match self.try_lock() {
             Some(guard) => guard,
@@ -77,6 +116,20 @@ impl<T: ?Sized> Mutex<T> {
         }
     }
 
+    /// Attempt to lock the [`Mutex`], returning a new [`CriticalMutexGuard`]
+    /// if the [`Mutex`] was sucessfully locked by the caller.
+    ///
+    /// This funciton will not block
+    ///
+    /// # Safety
+    ///
+    /// This function will disable interrupts, and then *enable* hardware
+    /// interrupts if the [`Mutex`]'s lock cannot be obtained.
+    ///
+    /// Hardware interrupts will also be enabled with the
+    /// [`CriticalMutexGuard`] is dropped - so the `critical` functions
+    /// should only be used in contexts where hardware interrupts are
+    /// expected
     pub fn try_critical(&self) -> Option<CriticalMutexGuard<T>> {
         crate::arch::interrupts::disable();
         if self.lock.compare_and_swap(false, true, Ordering::Acquire) == false {
@@ -87,6 +140,7 @@ impl<T: ?Sized> Mutex<T> {
         }
     }
 
+    /// Block until the [`Mutex`] can be locked -
     pub fn critical(&self) -> CriticalMutexGuard<T> {
         match self.try_critical() {
             Some(guard) => guard,

@@ -1,3 +1,4 @@
+//! Provides support functions
 #![allow(dead_code)]
 
 pub use crate::sync::Global;
@@ -21,19 +22,33 @@ macro_rules! println {
     });
 }
 
+/// Print formatted [`fmt::Arguments`] to the global VGA terminal.
+///
+/// This function locks the global terminal
 pub fn print(args: fmt::Arguments) {
     use fmt::Write;
     Terminal::global().lock().write_fmt(args).unwrap();
 }
 
 pub trait BitField {
+    /// Return the number of bits in `self`
     fn bits(&self) -> u8;
+
+    /// Get the boolean state of the given `bit` position
     fn get_bit(&self, bit: u8) -> bool;
+
+    /// Return a bit mask covering `bits`
     fn get_bits(&self, bits: Range<u8>) -> Self;
+
+    /// Set the provided `bit` to a boolean value
     fn set_bit(&mut self, bit: u8, value: bool);
+
+    /// Fill in a range of `bits` from `value`. `bits` and `value` are
+    /// zipped together, and the bits in `self` are filled in order
+    /// starting from the 0th bit of `value`.
     fn set_bits(&mut self, bits: Range<u8>, value: Self);
 
-    /// Return an iterator over the bits in
+    /// Return a [`BitIterator`] over the bits in `Self`
     fn bit_iter(&self) -> BitfieldIterator<Self>
     where
         Self: Copy,
@@ -46,6 +61,10 @@ pub trait BitField {
     }
 }
 
+/// [`Iterator`] over the bits in a type that implements [`BitField`],
+/// where forward iteration yields least-significant bits first and
+/// reverse iteration (through [`DoubleEndedIterator`]) yields most-significant
+/// bits first
 pub struct BitfieldIterator<T: BitField> {
     fwd_bit: u8,
     rev_bit: Option<u8>,
@@ -78,6 +97,7 @@ impl<T: BitField> DoubleEndedIterator for BitfieldIterator<T> {
     }
 }
 
+/// Automatically implement [`BitField`] for numeric types
 #[macro_export]
 macro_rules! bitfield {
     ($($t:ty)*) => {$(

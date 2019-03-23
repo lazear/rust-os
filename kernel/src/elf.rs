@@ -1,3 +1,5 @@
+//! Parse the kernel's executable file for advanced error-handling
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
 pub struct ElfHeader {

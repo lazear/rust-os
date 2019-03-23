@@ -14,4 +14,3 @@ panic = "abort"
 panic = "abort"
 
 [dependencies]
-spin = "0.5.0"

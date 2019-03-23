@@ -3,16 +3,16 @@
 #![feature(asm, panic_info_message, naked_functions)]
 #![allow(dead_code)]
 #[macro_use]
-mod sync;
+pub mod sync;
 #[macro_use]
-mod prelude;
+pub mod prelude;
 #[macro_use]
-mod arch;
-mod elf;
-mod io;
-mod memory;
-mod paging;
-mod term;
+pub mod arch;
+pub mod elf;
+pub mod io;
+pub mod memory;
+pub mod paging;
+pub mod term;
 
 use prelude::*;
 

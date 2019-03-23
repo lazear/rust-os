@@ -1,23 +1,23 @@
+//! Module providing low-level synchronization primitives for use within
+//! the operating system kernel
 mod init;
 mod mutex;
 
 pub use init::Once;
 pub use mutex::{Mutex, MutexGuard};
 
-//use spin;
-//pub use spin::Once;
-
 /// Trait that automatically generates a globl variable wrapping a struct
-/// behind a `Once<Mutex<T>>`, along with an associated function for the
-/// struct that returns a reference to the wrapping `Mutex`.
+/// behind a [`Once<Mutex<T>>`], along with an associated function for the
+/// struct that returns a reference to the wrapping [`Mutex`].
 ///
-/// `T` must implement `Default` if the first macro expansion of global!
+/// `T` must implement [`Default`] if the first macro expansion of global!
 /// is used. Otherwise a function block must be provided that initializes
 /// `T`
 pub trait Global {
     fn global<'a>() -> &'a Mutex<Self>;
 }
 
+/// Implement [`Global`] for `T`
 #[macro_export]
 macro_rules! global {
     ($T:ty) => {
