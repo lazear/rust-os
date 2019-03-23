@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
-use crate::sync::Global;
+pub use crate::sync::Global;
+
 use crate::term::Terminal;
 use core::fmt;
 use core::mem;
@@ -15,28 +16,14 @@ macro_rules! print {
 
 #[macro_export]
 macro_rules! println {
-    ($($arg:tt)*) => (
-        {
-            $crate::prelude::println(format_args!($($arg)*));
-        }
-       );
+    ($($arg:tt)*) => ({
+            $crate::print!("{}\n", format_args!($($arg)*));
+    });
 }
 
 pub fn print(args: fmt::Arguments) {
     use fmt::Write;
-    {
-        let term = unsafe { Terminal::global().force() };
-        term.write_fmt(args).unwrap();
-    }
-}
-
-pub fn println(args: fmt::Arguments) {
-    use fmt::Write;
-    {
-        let term = unsafe { Terminal::global().force() };
-        term.write_fmt(args).unwrap();
-        term.write_char('\n').unwrap();
-    }
+    Terminal::global().lock().write_fmt(args).unwrap();
 }
 
 pub trait BitField {

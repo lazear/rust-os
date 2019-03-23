@@ -1,5 +1,25 @@
 use crate::prelude::*;
 
+pub fn enable() {
+    unsafe {
+        asm!("sti" :::: "volatile");
+    }
+}
+
+pub fn disable() {
+    unsafe {
+        asm!("cli" :::: "volatile");
+    }
+}
+
+/// Run a closure with interrupts disabled
+pub fn critical_section<T, F: FnOnce() -> T>(f: F) -> T {
+    disable();
+    let r = f();
+    enable();
+    r
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Preserved {
@@ -25,28 +45,34 @@ pub struct Scratch {
     pub rax: usize,
 }
 
-
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct InterruptErrorStack {
     pub fs: usize,
-    pub preserved: Preserved,
     pub scratch: Scratch,
+    pub preserved: Preserved,
+
     pub error_code: usize,
+
     pub rip: usize,
     pub cs: usize,
     pub rflags: usize,
+    pub rsp: usize,
+    pub ss: usize,
 }
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct InterruptStack {
     pub fs: usize,
-    pub preserved: Preserved,
     pub scratch: Scratch,
+    pub preserved: Preserved,
+
     pub rip: usize,
     pub cs: usize,
     pub rflags: usize,
+    pub rsp: usize,
+    pub ss: usize,
 }
 
 impl core::fmt::Debug for Preserved {
@@ -60,8 +86,8 @@ impl core::fmt::Debug for InterruptErrorStack {
     fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(
             fmt,
-            "error {} occurred at {:0X}:0x{:#016X} with flags {:#016X}!\n{:?}",
-            self.error_code, self.cs, self.rip, self.rflags, self.preserved
+            "error {:0X} occurred at {:0X}:0x{:#016X} with flags {:#016X}!\n{:?}\nrsp {:0X}:{:#016X}",
+            self.error_code, self.cs, self.rip, self.rflags, self.preserved, self.ss, self.rsp,
         )
     }
 }
@@ -94,8 +120,8 @@ macro_rules! pop_preserved {
         pop r14 
         pop r13 
         pop r12 
-        pop rbx 
-        pop rbp"
+        pop rbp 
+        pop rbx"
         :::: "intel", "volatile"
     )};
 }
@@ -133,7 +159,7 @@ macro_rules! pop_scratch {
 macro_rules! push_fs {
     () => {asm!(
         "push fs
-        mov rax, 0x18
+        mov rax, 0x20
         mov fs, rax"
         :::: "intel", "volatile"
     )};
@@ -152,7 +178,7 @@ macro_rules! interrupt {
     ($name:ident, $stack:ident) => {
         interrupt!($name, $stack, {
             println!("CPU fault: {}\n{:?}", stringify!($name), $stack);
-            asm!("hlt" :::: "intel", "volatile");
+        //    asm!("hlt" :::: "intel", "volatile");
         });
     };
     ($name:ident, $func:block) => {
@@ -205,7 +231,7 @@ macro_rules! interrupt_error {
     ($name:ident, $stack:ident) => {
         interrupt_error!($name, $stack, {
             println!("CPU fault: {}\n{:?}", stringify!($name), $stack);
-            asm!("hlt" :::: "intel", "volatile");
+            // asm!("hlt" :::: "intel", "volatile");
         });
     };
     ($name:ident, $func:block) => {
@@ -244,6 +270,7 @@ macro_rules! interrupt_error {
 
             let rsp: usize;
             asm!("" : "={rsp}"(rsp) ::: "intel", "volatile");
+           // asm!("sub rsp, 8")'
 
             inner(&mut *(rsp as *mut $crate::arch::interrupts::InterruptErrorStack));
 
@@ -265,7 +292,9 @@ interrupt!(overflow, stack);
 interrupt!(bound_range, stack);
 interrupt!(invalid_opcode, stack);
 interrupt!(device_not_available, stack);
-interrupt_error!(double_fault, stack);
+interrupt_error!(double_fault, stack, {
+    //asm!("hlt");
+});
 interrupt!(coprocessor_segment, stack);
 
 interrupt_error!(invalid_tss, stack);

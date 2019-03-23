@@ -15,5 +15,4 @@ pub enum PrivilegeLevel {
 pub struct DescriptorTablePtr {
     limit: u16,
     base: usize,
-    
 }

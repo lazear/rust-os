@@ -183,10 +183,23 @@ load_elf:
 
 	.done:
 	pop rdi
+	xor r9, r9
+	mov r9, [rdi + elf64_ehdr.entry]
+	mov [elf_ptr], rdi
+	mov r10, [rdi + elf64_ehdr.ehsize]
+	mov [elf_len], r10
 	xor rax, rax
-	mov rax, [rdi + elf64_ehdr.entry]
-	;hlt
-	call rax
+	mov rax, [0x6FF0]
+	mov bl, 24
+	div bl
+	mov [mmap_len], al
+	lea rdi, [boot_struct]
+
+	call r9
 	ret
 
-
+boot_struct:
+	mmap_ptr: dq 0x7000
+	mmap_len: dq 0	
+	elf_ptr: dq 0
+	elf_len: dq 0

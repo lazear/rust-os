@@ -4,22 +4,19 @@
 #![allow(dead_code)]
 #[macro_use]
 mod sync;
-
 #[macro_use]
 mod prelude;
-
 #[macro_use]
 mod arch;
-
+mod elf;
 mod io;
-
+mod memory;
 mod term;
 
 use prelude::*;
 
 use io::{Io, Serial};
-use sync::Global;
-use term::Color;
+use memory::physical::{Allocator, MemoryMap, MemoryMapInfo};
 
 use core::fmt::Write;
 use core::panic::PanicInfo;
@@ -48,32 +45,31 @@ fn panic(info: &PanicInfo) -> ! {
     loop {}
 }
 
+extern "C" {
+    static _kernel_start: *const usize;
+    static _kernel_end: *const usize;
+}
+
 #[cfg(not(test))]
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
-    println!("Hello!");
-    arch::instructions::Interrupts::disable();
+extern "C" fn _start(info: &'static MemoryMapInfo) -> ! {
+    arch::interrupts::disable();
     {
         let idt = arch::idt::InterruptDescriptorTable::global().lock();
-        println!("{:0X}", &*idt as *const _ as usize);
         idt.load();
     }
 
-    {
-        let mut idt = arch::idt::InterruptDescriptorTable::global().lock();
-         for i in 0..=255 {
-            let s = idt.entry(i);
-            let empty = arch::idt::Entry::empty();
-            if s == &empty {
-                continue;
-            }
-            unsafe {
-                let addr: u64 = s.offset_low as u64
-                    | (s.offset_mid as u64) << 16
-                    | (s.offset_high as u64) << 32;
-                println!("{} {:0X}", i, addr);
-            }
-        }
+    unsafe {
+        println!("{:0X} {:0X}", _kernel_start as usize, _kernel_end as usize);
+    }
+
+    let mut allocator = memory::physical::allocator::BumpAllocator::new(info);
+
+    let ehdr = unsafe { core::slice::from_raw_parts(info.elf_ptr, info.elf_len) };
+    let elf = elf::Elf::from(ehdr);
+
+    for segment in elf.segments {
+        println!("{:0X} {:0X}", segment.vaddr, segment.mem_size);
     }
 
     let cr3 = arch::instructions::cr3();
@@ -122,14 +118,16 @@ pub extern "C" fn _start() -> ! {
     }
 
     println!("cr3 = 0x{:#016X}", cr3);
-   // arch::instructions::Interrupts::enable();
+    //arch::interrupts::enable();
 
-    let mut ptr = 0xDEADBEEF as *mut usize;
+    // let mut ptr = 0xDEADBEEF as *mut usize;
     unsafe {
         asm!("int3");
 
+        asm!("int3");
         //*ptr = 10;
     }
-    
+
+    println!("Entering final loop");
     loop {}
 }

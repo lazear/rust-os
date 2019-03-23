@@ -11,6 +11,13 @@ pub struct MutexGuard<'a, T: ?Sized + 'a> {
     _mutex: &'a Mutex<T>,
 }
 
+/// A `CriticalMutexGuard` guarantees that maskable hardware interrupts
+/// will not fire while the guard is held. Dropping the `CriticalMutexGuard`
+/// first releases the `Mutex` and then enables hardware interrupts
+pub struct CriticalMutexGuard<'a, T: ?Sized + 'a> {
+    _mutex: &'a Mutex<T>,
+}
+
 impl<T> Mutex<T> {
     pub fn new(data: T) -> Mutex<T> {
         Mutex {
@@ -69,6 +76,26 @@ impl<T: ?Sized> Mutex<T> {
             }
         }
     }
+
+    pub fn try_critical(&self) -> Option<CriticalMutexGuard<T>> {
+        crate::arch::interrupts::disable();
+        if self.lock.compare_and_swap(false, true, Ordering::Acquire) == false {
+            Some(CriticalMutexGuard { _mutex: self })
+        } else {
+            crate::arch::interrupts::enable();
+            None
+        }
+    }
+
+    pub fn critical(&self) -> CriticalMutexGuard<T> {
+        match self.try_critical() {
+            Some(guard) => guard,
+            None => {
+                self.acquire();
+                CriticalMutexGuard { _mutex: self }
+            }
+        }
+    }
 }
 
 impl<T> From<T> for Mutex<T> {
@@ -107,6 +134,31 @@ impl<'a, T: ?Sized> Drop for MutexGuard<'a, T> {
         unsafe {
             self._mutex.release();
         }
+    }
+}
+
+impl<'a, T: ?Sized> Deref for CriticalMutexGuard<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        unsafe { &*self._mutex.inner.get() }
+    }
+}
+
+impl<'a, T: ?Sized> DerefMut for CriticalMutexGuard<'a, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        unsafe { &mut *self._mutex.inner.get() }
+    }
+}
+
+impl<'a, T: ?Sized> Drop for CriticalMutexGuard<'a, T> {
+    #[inline]
+    /// Dropping the `CriticalMutexGuard` releases the lock and enables interrupts
+    fn drop(&mut self) {
+        unsafe {
+            self._mutex.release();
+        }
+        crate::arch::interrupts::enable();
     }
 }
 
