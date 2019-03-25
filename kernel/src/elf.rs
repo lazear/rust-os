@@ -61,6 +61,7 @@ pub struct Elf<'a> {
 impl<'a> Elf<'a> {
     const ELFMAGIC: [u8; 4] = [0x7F, 'E' as u8, 'L' as u8, 'F' as u8];
 
+    /// TODO: pointer alignment issues?
     pub fn from(data: &'a [u8]) -> Elf<'a> {
         if data[..Self::ELFMAGIC.len()] != Self::ELFMAGIC {
             panic!("Invalid ELF header!");

@@ -28,7 +28,7 @@ macro_rules! global {
         {
             #[inline(always)]
             fn global<'a>() -> &'a $crate::sync::Mutex<$T> {
-                __GLOBAL.call_once(|| $crate::sync::Mutex::default())
+                __GLOBAL.call_once($crate::sync::Mutex::default)
             }
         }
     };
@@ -47,4 +47,34 @@ macro_rules! global {
             }
         }
     };
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use core::sync::atomic::{AtomicUsize, Ordering};
+
+    static ATOMIC: AtomicUsize = AtomicUsize::new(0);
+
+    struct GlobalTester;
+
+    global!(GlobalTester, {
+        ATOMIC.fetch_add(1, Ordering::Relaxed);
+        GlobalTester
+    });
+
+    #[test]
+    fn call_once_only() {
+        assert_eq!(ATOMIC.load(Ordering::SeqCst), 0);
+        let _ = GlobalTester::global();
+
+        assert_eq!(ATOMIC.load(Ordering::SeqCst), 1);
+
+        for _ in 0..100 {
+            let _ = GlobalTester::global().lock();
+        }
+
+        assert_eq!(ATOMIC.load(Ordering::SeqCst), 1);
+    }
+
 }

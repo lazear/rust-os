@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 
 pub use crate::sync::Global;
+pub use core::fmt::Write;
 
 use crate::term::Terminal;
 use core::fmt;

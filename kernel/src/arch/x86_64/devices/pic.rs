@@ -1,5 +1,5 @@
-use crate::io::{Port, Io};
-use crate::sync::Global;
+use crate::io::{Io, Port};
+use crate::sync;
 
 const PIC1_CMD: u16 = 0x20;
 const PIC2_CMD: u16 = 0xA0;
@@ -8,17 +8,19 @@ const PIC2_DATA: u16 = 0xA2;
 const IRQ_SLAVE: u8 = 0x02;
 const IRQ_ZERO: u8 = 0x20;
 
-global!(Controller);
+/// We have a global instance of the PIC because there are mutable operations
+/// that can be performed on it (masking/unmasking interrupts)
+global!(Intel8259);
 
 /// Intel 8259A Programmable Interrupt Controller
-pub struct Controller {
+pub struct Intel8259 {
     mask: u16,
     data1: Port<u8>,
     data2: Port<u8>,
 }
 
-impl Default for Controller {
-    fn default() -> Controller {
+impl Default for Intel8259 {
+    fn default() -> Intel8259 {
         let mut data1 = Port::<u8>::new(PIC1_DATA);
         let mut data2 = Port::<u8>::new(PIC2_DATA);
         let mut cmd1 = Port::<u8>::new(PIC1_CMD);
@@ -47,7 +49,7 @@ impl Default for Controller {
         cmd2.write(0x68);
         cmd2.write(0x0A);
 
-        Controller {
+        Intel8259 {
             mask: 0xFFFF & !(1 << IRQ_SLAVE),
             data1,
             data2,
@@ -55,7 +57,7 @@ impl Default for Controller {
     }
 }
 
-impl Controller {
+impl Intel8259 {
     fn set_mask(&mut self, mask: u16) {
         self.mask = mask;
         // write low word

@@ -1,8 +1,8 @@
 pub mod idt;
 pub mod instructions;
+#[macro_use]
 pub mod interrupts;
-pub mod pic;
-pub mod pit;
+pub mod devices;
 
 #[repr(u16)]
 pub enum PrivilegeLevel {
