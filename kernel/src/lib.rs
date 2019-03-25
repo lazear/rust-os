@@ -61,7 +61,8 @@ extern "C" fn _start(info: &'static MemoryMapInfo) -> ! {
 
         idt.register(0x20, arch::interrupts::timer);
     }
-
+    
+    let _ = arch::pit::Intel8253::init(10000);
     let pic = arch::pic::Controller::global().lock();
 
     println!(
