@@ -312,3 +312,5 @@ interrupt!(machine_check, stack);
 interrupt!(simd, stack);
 interrupt!(virtualization, stack);
 interrupt_error!(security, stack);
+
+interrupt!(timer, stack, { super::pit::Timer::global().lock().tick() });

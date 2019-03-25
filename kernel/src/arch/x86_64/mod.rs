@@ -1,6 +1,8 @@
 pub mod idt;
 pub mod instructions;
 pub mod interrupts;
+pub mod pic;
+pub mod pit;
 
 #[repr(u16)]
 pub enum PrivilegeLevel {

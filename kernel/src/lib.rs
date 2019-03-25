@@ -56,9 +56,13 @@ extern "C" {
 extern "C" fn _start(info: &'static MemoryMapInfo) -> ! {
     arch::interrupts::disable();
     {
-        let idt = arch::idt::InterruptDescriptorTable::global().lock();
+        let mut idt = arch::idt::InterruptDescriptorTable::global().lock();
         idt.load();
+
+        idt.register(0x20, arch::interrupts::timer);
     }
+
+    let pic = arch::pic::Controller::global().lock();
 
     println!(
         "kernel pages: {:?}",
@@ -124,7 +128,7 @@ extern "C" fn _start(info: &'static MemoryMapInfo) -> ! {
     }
 
     println!("cr3 = 0x{:#016X}", cr3);
-    //arch::interrupts::enable();
+    arch::interrupts::enable();
 
     let mut ptr = 0xDEADBEEF as *mut usize;
     unsafe {

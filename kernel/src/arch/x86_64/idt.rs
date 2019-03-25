@@ -57,6 +57,10 @@ impl InterruptDescriptorTable {
     pub fn entry(&mut self, index: u8) -> &mut Entry {
         &mut self.entries[index as usize]
     }
+
+    pub fn register(&mut self, irq: u8, handler: Handler) {
+        self.entry(irq).set_handler(handler);
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
