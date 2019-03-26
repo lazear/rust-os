@@ -43,6 +43,11 @@ extern "C" fn _start(info: &'static MemoryMapInfo) -> ! {
 
     let ehdr = unsafe { core::slice::from_raw_parts(info.elf_ptr, info.elf_len) };
     let elf = elf::Elf::from(ehdr);
+    println!("{:?}", elf.header);
+    for section in elf.sections {
+        println!("{:?}", section);
+    }
+    elf.symbol();
 
     let cr3 = arch::instructions::cr3();
 

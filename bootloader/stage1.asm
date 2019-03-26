@@ -128,7 +128,7 @@ packet:
 	db	0x10	; packet size (16 bytes)
 	db	0		; always 0
 .count:		
-	dw	120		; number of sectors to transfer
+	dw	127		; number of sectors to transfer
 .dest:		
 	dw	0		; destination offset (0:7c00)
 	dw	0x7e0	; destination segment

@@ -66,6 +66,12 @@ fn main() -> io::Result<()> {
         panic!("Error executing assembler commands");
     }
 
+    Command::new("strip")
+        .current_dir("build")
+        .args(&["kernel.elf"])
+        .spawn()?
+        .wait()?;
+
     println!("Copying files to disk image");
 
     let mut handle = create_block("./build/disk.img", 0x1000)?;
