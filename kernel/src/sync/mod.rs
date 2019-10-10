@@ -76,5 +76,4 @@ mod test {
 
         assert_eq!(ATOMIC.load(Ordering::SeqCst), 1);
     }
-
 }

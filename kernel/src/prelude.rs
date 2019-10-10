@@ -31,6 +31,38 @@ pub fn print(args: fmt::Arguments) {
     Terminal::global().lock().write_fmt(args).unwrap();
 }
 
+pub struct BytesBuf<'a> {
+    buf: &'a mut [u8],
+    offset: usize,
+}
+
+impl<'a> BytesBuf<'a> {
+    pub fn from_slice(slice: &'a mut [u8]) -> BytesBuf {
+        BytesBuf {
+            buf: slice,
+            offset: 0,
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        unsafe { core::str::from_utf8_unchecked(self.buf) }
+    }
+}
+
+impl<'a> core::fmt::Write for BytesBuf<'a> {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        let src = s.as_bytes();
+        let dst = &mut self.buf[self.offset..];
+        if dst.len() < s.len() {
+            return Err(core::fmt::Error);
+        }
+        let dst = &mut dst[..src.len()];
+        dst.copy_from_slice(src);
+        self.offset += src.len();
+        Ok(())
+    }
+}
+
 pub trait BitField {
     /// Return the number of bits in `self`
     fn bits(&self) -> u8;

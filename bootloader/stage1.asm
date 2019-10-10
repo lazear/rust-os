@@ -77,6 +77,7 @@ entry:
 	mov [drive], dl
 	mov ax, 0
 	int 13h
+	mov ax, 0x07e0
 	call read_disk
 	
 
@@ -112,8 +113,7 @@ entry:
 	jmp GDT_CODE32:protected_mode
 
 
-read_disk:
-	mov ax, 0x07e0
+read_disk:	
 	mov si, packet		; address of "disk address packet"
 	mov ah, 0x42		; extended read
 	mov dl, [drive]		; drive number 0 (OR the drive # with 0x80)
@@ -128,7 +128,7 @@ packet:
 	db	0x10	; packet size (16 bytes)
 	db	0		; always 0
 .count:		
-	dw	120		; number of sectors to transfer
+	dw	128		; number of sectors to transfer
 .dest:		
 	dw	0		; destination offset (0:7c00)
 	dw	0x7e0	; destination segment
